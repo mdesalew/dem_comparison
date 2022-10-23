@@ -25,10 +25,13 @@ grouped = grouped.sort_values('mean').reset_index(drop=True)
 grouped.to_csv(f'D:/dem_comparison/data/abs_sinuosity.csv', index=False)
 
 # Create figure and save as PNG
+color_names = ['magenta2', 'goldenrod2', 'seagreen3', 'tomato2', 'snow4']
+sns.set_palette(sns.color_palette([utils.get_hex_code(color_name) for color_name in color_names]))
 fig, ax = plt.subplots(1, 1, figsize=(12, 6))
 sns.barplot(y='Difference', x='Country', data=stats_df, hue='DEM', ax=ax)
-ax.set_xlabel('Country')
-ax.set_ylabel('Difference in sinuosity compared to reference network (%)')
+ax.set_xticklabels([utils.get_basin_name(country_code) for country_code in country_codes])
+ax.set_xlabel('Basin')
+ax.set_ylabel('${S_{diff}}$ (%)')
 for container in ax.containers:
     ax.bar_label(container)
 plt.legend(bbox_to_anchor=(1.05, 1), loc=2, title='DEM')

@@ -1,7 +1,7 @@
 # Import packages
 import os
 from pathlib import Path
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 from osgeo import ogr
 import geopandas as gpd
@@ -14,6 +14,9 @@ import pandas as pd
 from rasterstats import zonal_stats
 from shapely.geometry import LineString, MultiLineString
 from shapely.ops import linemerge
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set_theme()
 
 
 # Get geometry type
@@ -177,7 +180,7 @@ def stats_to_csv(stats: list, stat_name: object, fp_to_buffers: object):
 # Get slope statistics
 def get_slope_stats(fp_to_buffers: object, fp_to_slope: object, stat_name: Optional[object] = None):
     layer = os.path.splitext(os.path.basename(fp_to_buffers))[0]
-    stats = zonal_stats(vectors=fp_to_buffers, raster=fp_to_slope, layer=layer, stats=['mean'])
+    stats = zonal_stats(vectors=fp_to_buffers, raster=fp_to_slope, layer=layer, stats=['median'])
     stats_to_csv(stats=stats, stat_name=stat_name, fp_to_buffers=fp_to_buffers)
     return
 
@@ -218,7 +221,7 @@ def get_profile(fp: object) -> rasterio.profiles.Profile:
 # Calculate percentage of forest in point buffers
 def calc_forest_pct(array: np.array) -> float:
     count = np.count_nonzero(array == 10)
-    pct = count / (~np.isnan(array)).sum()
+    pct = count / (~np.isnan(array)).sum() * 100
     return pct
 
 
@@ -326,13 +329,13 @@ def get_fp_to_stats(country_code: object, dem_name: object, feature_type: object
     return f'D:/dem_comparison/data/{country_code}/stats/{country_code}_{dem_name}_{feature_type}_{stat_name}.csv'
 
 
-# Classify slope mean
-def classify_slope_mean(row):
-    if row['slope_mean'] < 5:
+# Classify slope median
+def classify_slope_median(row):
+    if row['slope_median'] < 5:
         slope_class = '< 5'
-    elif 5 <= row['slope_mean'] < 10:
+    elif 5 <= row['slope_median'] < 10:
         slope_class = '5 - 10'
-    elif 10 <= row['slope_mean'] < 40:
+    elif 10 <= row['slope_median'] < 40:
         slope_class = '10 - 40'
     else:
         slope_class = '> 40'
@@ -350,3 +353,142 @@ def classify_forest_pct(row):
     else:
         forest_class = '> 50%'
     return forest_class
+
+
+# Get HEX code based on color name used in R
+def get_hex_code(color_name: object) -> object:
+    color_dict = {
+        'magenta2': '#EE00EE',
+        'goldenrod2': '#EEB422',
+        'seagreen3': '#43CD80',
+        'tomato2': '#EE5C42',
+        'bisque4': '#8B7D6B',
+        'snow4': '#8B8989'
+    }
+    return color_dict.get(color_name)
+
+
+# Get basin name based on country code
+def get_basin_name(country_code: object) -> object:
+    name_dict = {
+        'ESP': 'Argos',
+        'EST': 'Porijõgi',
+        'ETH': 'Ribb',
+        'USA': 'St. Joseph'
+    }
+    return name_dict.get(country_code)
+
+
+# Read statistics into DataFrame
+def read_stats(country_code: object, dem_name: object, feature_type: object, stat_name: object) -> pd.DataFrame:
+    fp = get_fp_to_stats(country_code=country_code, dem_name=dem_name, feature_type=feature_type, stat_name=stat_name)
+    stats = pd.read_csv(fp)
+    return stats
+
+
+# Merge distance statistics with the other one for plotting
+def merge_stats_for_plot(
+        country_code: object, dem_names: list, feature_type: object, stat_name: object) -> pd.DataFrame:
+    dist_stats = pd.concat(
+        [read_stats(country_code, dem_name, feature_type, 'dist_to_ref') for dem_name in dem_names]
+    ).reset_index(drop=True)
+    stats = pd.concat(
+        [read_stats(country_code, dem_name, feature_type, stat_name) for dem_name in dem_names]
+    ).reset_index(drop=True)
+    merged = dist_stats.merge(stats[['point_id', stat_name]], how='left', on='point_id')
+    merged = merged.sort_values(['dem_name', stat_name]).reset_index(drop=True)
+    return merged
+
+
+# Get axis label based on the name of the statistic
+def get_label(stat_name: object) -> object:
+    if stat_name == 'forest_pct':
+        return 'Forest percentage'
+    elif stat_name == 'slope_median':
+        return 'Median slope'
+    return
+
+
+# Get classification function based on the name of the statistic
+def get_class_func(stat_name: object) -> Callable:
+    if stat_name == 'forest_pct':
+        return classify_forest_pct
+    elif stat_name == 'slope_median':
+        return classify_slope_median
+    return
+
+
+# Plot histogram in subplot and return it
+def plot_hist(
+        country_code: object, dem_names: list, feature_type: object, stat_name: object, ax: plt.Axes) -> plt.Axes:
+    merged = merge_stats_for_plot(country_code, dem_names, feature_type, stat_name)
+    merged[stat_name].hist(ax=ax)
+    ax.set_xlabel(get_label(stat_name=stat_name))
+    ax.set_ylabel(f'Number of {feature_type} point buffers')
+    ax.set_title(get_basin_name(country_code))
+    return ax
+
+
+# Plot relationship between statistic and distance to reference geometry
+def plot_stat_vs_dist(
+        country_code: object, dem_names: list, feature_type: object, stat_name: object, ax: plt.Axes) -> plt.Axes:
+    merged = merge_stats_for_plot(country_code, dem_names, feature_type, stat_name)
+    merged[f'{stat_name}_class'] = merged.apply(get_class_func(stat_name), axis=1)
+    color_names = ['magenta2', 'goldenrod2', 'seagreen3', 'tomato2', 'snow4']
+    palette = sns.color_palette([get_hex_code(color_name) for color_name in color_names])
+    sns.boxplot(
+        y='dist_to_ref', x=f'{stat_name}_class', data=merged, hue='dem_name', ax=ax, showfliers=False,
+        palette=palette
+    )
+    ax.set_xlabel(get_label(stat_name=stat_name))
+    ax.set_ylabel(f'Distance to reference {feature_type} (m)')
+    ax.set_title(get_basin_name(country_code))
+    # if country_code != country_codes[-1]:
+    #     ax.get_legend().remove()
+    return ax
+
+
+# Create figure with subplots and save it as PNG
+def subplots_to_png(
+        country_codes: list, dem_names: list, feature_type: object, stat_name: object, plot_func: Callable):
+    fig, axes = plt.subplots(2, 2, figsize=(12, 9))
+    for country_code, ax in zip(country_codes, axes.flatten()):
+        plot_func(country_code, dem_names, feature_type, stat_name, ax=ax)
+    if plot_func == plot_hist:
+        fp = f'D:/dem_comparison/figures/{stat_name}_hist_{feature_type}.png'
+    elif plot_func == plot_stat_vs_dist:
+        fp = f'D:/dem_comparison/figures/{stat_name}_vs_dist_to_ref_{feature_type}.png'
+        for ax in fig.axes:
+            if ax != fig.axes[-1]:
+                ax.get_legend().remove()
+        handles, labels = ax.get_legend_handles_labels()
+        ax.get_legend().remove()
+        fig.legend(handles, labels, loc='lower center', ncol=5, title='DEM', bbox_to_anchor=(0.5, -0.1))
+    plt.tight_layout()
+    plt.savefig(fp, dpi=300, bbox_inches='tight')
+    return
+
+
+# Plot relationship between statistic and distance to reference geometry by class
+def plot_stat_vs_dist_by_class(country_codes: list, dem_names: list, feature_type: object, stat_name: object):
+    merged = pd.concat(
+        [merge_stats_for_plot(country_code, dem_names, feature_type, stat_name) for country_code in country_codes]
+    )
+    merged[f'{stat_name}_class'] = merged.apply(get_class_func(stat_name), axis=1)
+    if stat_name == 'forest_pct':
+        palette = 'light:seagreen'
+    elif stat_name == 'slope_median':
+        palette = 'dark:salmon_r'
+    fig, ax = plt.subplots(1, 1, figsize=(12, 6))
+    sns.boxplot(
+        y='dist_to_ref', x='country_code', data=merged, hue=f'{stat_name}_class', ax=ax, showfliers=False,
+        palette=palette
+    )
+    ax.set_xticklabels([get_basin_name(country_code) for country_code in country_codes])
+    ax.set_xlabel('Basin name')
+    ax.set_ylabel(f'Distance to reference {feature_type} (m)')
+    plt.legend(loc='lower center', ncol=4, title=get_label(stat_name=stat_name), bbox_to_anchor=(0.5, -0.3))
+    plt.tight_layout()
+    fp = f'D:/dem_comparison/figures/{stat_name}_vs_dist_to_ref_{feature_type}_by_class.png'
+    plt.savefig(fp, dpi=300, bbox_inches='tight')
+    return

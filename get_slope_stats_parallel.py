@@ -18,6 +18,6 @@ Parallel(n_jobs=4)(
     delayed(
         utils.get_slope_stats
     )(
-        fp_to_buffers, fp_to_slope, 'slope_mean'
+        fp_to_buffers, fp_to_slope, 'slope_median'
     ) for input_dict in stats_input for fp_to_buffers, fp_to_slope in input_dict.items()
 )
