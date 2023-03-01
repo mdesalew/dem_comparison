@@ -1,6 +1,4 @@
 # Import packages
-from joblib import Parallel, delayed
-
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -29,11 +27,11 @@ color_names = ['magenta2', 'goldenrod2', 'seagreen3', 'tomato2', 'snow4']
 sns.set_palette(sns.color_palette([utils.get_hex_code(color_name) for color_name in color_names]))
 fig, ax = plt.subplots(1, 1, figsize=(12, 6))
 sns.barplot(y='Difference', x='Country', data=stats_df, hue='DEM', ax=ax)
-ax.set_xticklabels([utils.get_basin_name(country_code) for country_code in country_codes])
-ax.set_xlabel('Basin')
-ax.set_ylabel('${S_{diff}}$ (%)')
+ax.set_xticklabels([utils.get_catchment_name(country_code) for country_code in country_codes], fontsize=16)
+ax.set_xlabel('Catchment name', fontsize=16)
+ax.set_ylabel('${S_{Diff}}$ (%)', fontsize=16)
 for container in ax.containers:
-    ax.bar_label(container)
-plt.legend(bbox_to_anchor=(1.05, 1), loc=2, title='DEM')
+    ax.bar_label(container, fontsize=16)
+plt.legend(bbox_to_anchor=(1.05, 1), loc=2, title='DEM', title_fontsize=16, fontsize=16)
 plt.tight_layout()
-plt.savefig(f'D:/dem_comparison/figures/sinuosity_by_country.png', dpi=300)
+plt.savefig(f'D:/dem_comparison/figures/sinuosity_by_catchment.png', dpi=300)

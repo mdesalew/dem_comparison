@@ -42,7 +42,7 @@ def get_dem_name(fp: object) -> object:
     return dem_name
 
 
-# Get feature type (basin or stream) from path
+# Get feature type (catchment or stream) from path
 def get_feature_type(fp: object) -> object:
     country_code = get_country_code(fp=fp)
     parts = Path(fp).parts
@@ -345,19 +345,20 @@ def classify_slope_median(row):
 # Classify forest percentage
 def classify_forest_pct(row):
     if row['forest_pct'] < 0.1:
-        forest_class = '< 10%'
+        forest_class = '< 10'
     elif 0.1 <= row['forest_pct'] < 0.25:
-        forest_class = '10 - 25%'
+        forest_class = '10 - 25'
     elif 0.25 <= row['forest_pct'] < 0.5:
-        forest_class = '25 - 50%'
+        forest_class = '25 - 50'
     else:
-        forest_class = '> 50%'
+        forest_class = '> 50'
     return forest_class
 
 
 # Get HEX code based on color name used in R
 def get_hex_code(color_name: object) -> object:
     color_dict = {
+        'dodgerblue3': '#1874CD',
         'magenta2': '#EE00EE',
         'goldenrod2': '#EEB422',
         'seagreen3': '#43CD80',
@@ -368,13 +369,13 @@ def get_hex_code(color_name: object) -> object:
     return color_dict.get(color_name)
 
 
-# Get basin name based on country code
-def get_basin_name(country_code: object) -> object:
+# Get catchment name based on country code
+def get_catchment_name(country_code: object) -> object:
     name_dict = {
         'ESP': 'Argos',
         'EST': 'Porijõgi',
-        'ETH': 'Ribb',
-        'USA': 'St. Joseph'
+        'ETH': 'Rib',
+        'USA': 'Bald Eagle'
     }
     return name_dict.get(country_code)
 
@@ -403,9 +404,9 @@ def merge_stats_for_plot(
 # Get axis label based on the name of the statistic
 def get_label(stat_name: object) -> object:
     if stat_name == 'forest_pct':
-        return 'Forest percentage'
+        return 'Forest cover (%)'
     elif stat_name == 'slope_median':
-        return 'Median slope'
+        return 'Median slope (degrees)'
     return
 
 
@@ -422,10 +423,23 @@ def get_class_func(stat_name: object) -> Callable:
 def plot_hist(
         country_code: object, dem_names: list, feature_type: object, stat_name: object, ax: plt.Axes) -> plt.Axes:
     merged = merge_stats_for_plot(country_code, dem_names, feature_type, stat_name)
-    merged[stat_name].hist(ax=ax)
-    ax.set_xlabel(get_label(stat_name=stat_name))
-    ax.set_ylabel(f'Number of {feature_type} point buffers')
-    ax.set_title(get_basin_name(country_code))
+    if stat_name == 'forest_pct':
+        interval = 20
+        bins = range(0, 100 + interval, interval)
+    elif stat_name == 'slope_median':
+        interval = 5
+        bins = range(0, 45 + interval, interval)
+    merged[stat_name].hist(ax=ax, bins=bins)
+    ax.set_xlabel(get_label(stat_name=stat_name), fontsize=16)
+    if feature_type == 'basin':
+        ylabel = f'Number of catchment point buffers'
+    else:
+        ylabel = f'Number of {feature_type} point buffers'
+    ax.set_ylabel(ylabel, fontsize=16)
+    ax.set_title(get_catchment_name(country_code), fontsize=16)
+    ax.set_xticks(list(bins))
+    ax.set_xticklabels([round(tick) for tick in ax.get_xticks()], fontsize=16)
+    ax.set_yticklabels([round(tick) for tick in ax.get_yticks()], fontsize=16)
     return ax
 
 
@@ -440,18 +454,22 @@ def plot_stat_vs_dist(
         y='dist_to_ref', x=f'{stat_name}_class', data=merged, hue='dem_name', ax=ax, showfliers=False,
         palette=palette
     )
-    ax.set_xlabel(get_label(stat_name=stat_name))
-    ax.set_ylabel(f'Distance to reference {feature_type} (m)')
-    ax.set_title(get_basin_name(country_code))
-    # if country_code != country_codes[-1]:
-    #     ax.get_legend().remove()
+    ax.set_xlabel(get_label(stat_name=stat_name), fontsize=16)
+    if feature_type == 'basin':
+        ylabel = 'Distance to reference\n catchment (m)'
+    else:
+        ylabel = f'Distance to reference\n {feature_type} (m)'
+    ax.set_ylabel(ylabel, fontsize=16)
+    ax.set_title(get_catchment_name(country_code), fontsize=16)
+    ax.set_xticklabels(merged[f'{stat_name}_class'].unique(), fontsize=16)
+    ax.set_yticklabels([round(tick) for tick in ax.get_yticks()], fontsize=16)
     return ax
 
 
 # Create figure with subplots and save it as PNG
 def subplots_to_png(
         country_codes: list, dem_names: list, feature_type: object, stat_name: object, plot_func: Callable):
-    fig, axes = plt.subplots(2, 2, figsize=(12, 9))
+    fig, axes = plt.subplots(2, 2, figsize=(12, 9), sharex=True, sharey=True)
     for country_code, ax in zip(country_codes, axes.flatten()):
         plot_func(country_code, dem_names, feature_type, stat_name, ax=ax)
     if plot_func == plot_hist:
@@ -463,7 +481,15 @@ def subplots_to_png(
                 ax.get_legend().remove()
         handles, labels = ax.get_legend_handles_labels()
         ax.get_legend().remove()
-        fig.legend(handles, labels, loc='lower center', ncol=5, title='DEM', bbox_to_anchor=(0.5, -0.1))
+        fig.legend(
+            handles, labels, loc='lower center', ncol=5, title='DEM', bbox_to_anchor=(0.5, -0.1), title_fontsize=16,
+            fontsize=16
+        )
+    for ax in fig.axes:
+        if ax == fig.axes[0] or ax == fig.axes[1]:
+            ax.set(xlabel=None)
+        if ax == fig.axes[1] or ax == fig.axes[-1]:
+            ax.set(ylabel=None)
     plt.tight_layout()
     plt.savefig(fp, dpi=300, bbox_inches='tight')
     return
@@ -484,10 +510,18 @@ def plot_stat_vs_dist_by_class(country_codes: list, dem_names: list, feature_typ
         y='dist_to_ref', x='country_code', data=merged, hue=f'{stat_name}_class', ax=ax, showfliers=False,
         palette=palette
     )
-    ax.set_xticklabels([get_basin_name(country_code) for country_code in country_codes])
-    ax.set_xlabel('Basin name')
-    ax.set_ylabel(f'Distance to reference {feature_type} (m)')
-    plt.legend(loc='lower center', ncol=4, title=get_label(stat_name=stat_name), bbox_to_anchor=(0.5, -0.3))
+    ax.set_xticklabels([get_catchment_name(country_code) for country_code in country_codes], fontsize=16)
+    ax.set_yticklabels([round(tick) for tick in ax.get_yticks()], fontsize=16)
+    ax.set_xlabel('Catchment name', fontsize=16)
+    if feature_type == 'basin':
+        ylabel = 'Distance to reference\n catchment (m)'
+    else:
+        ylabel = f'Distance to reference\n {feature_type} (m)'
+    ax.set_ylabel(ylabel, fontsize=16)
+    plt.legend(
+        loc='lower center', ncol=4, title=get_label(stat_name=stat_name), bbox_to_anchor=(0.5, -0.4),
+        title_fontsize=16, fontsize=16
+    )
     plt.tight_layout()
     fp = f'D:/dem_comparison/figures/{stat_name}_vs_dist_to_ref_{feature_type}_by_class.png'
     plt.savefig(fp, dpi=300, bbox_inches='tight')
