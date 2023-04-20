@@ -35,4 +35,3 @@ for container in ax.containers:
 plt.legend(bbox_to_anchor=(1.05, 1), loc=2, title='DEM', title_fontsize=16, fontsize=16)
 plt.tight_layout()
 plt.savefig(f'D:/dem_comparison/figures/sinuosity_by_catchment.png', dpi=300)
->>>>>>> fdf541cd52a8eb0843efaca2512d857cb68695fa
