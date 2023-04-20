@@ -526,3 +526,4 @@ def plot_stat_vs_dist_by_class(country_codes: list, dem_names: list, feature_typ
     fp = f'D:/dem_comparison/figures/{stat_name}_vs_dist_to_ref_{feature_type}_by_class.png'
     plt.savefig(fp, dpi=300, bbox_inches='tight')
     return
+>>>>>>> fdf541cd52a8eb0843efaca2512d857cb68695fa
