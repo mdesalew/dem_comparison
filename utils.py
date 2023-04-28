@@ -344,11 +344,11 @@ def classify_slope_median(row):
 
 # Classify forest percentage
 def classify_forest_pct(row):
-    if row['forest_pct'] < 0.1:
+    if row['forest_pct'] < 10:
         forest_class = '< 10'
-    elif 0.1 <= row['forest_pct'] < 0.25:
+    elif 10 <= row['forest_pct'] < 25:
         forest_class = '10 - 25'
-    elif 0.25 <= row['forest_pct'] < 0.5:
+    elif 25 <= row['forest_pct'] < 50:
         forest_class = '25 - 50'
     else:
         forest_class = '> 50'
@@ -469,7 +469,7 @@ def plot_stat_vs_dist(
 # Create figure with subplots and save it as PNG
 def subplots_to_png(
         country_codes: list, dem_names: list, feature_type: object, stat_name: object, plot_func: Callable):
-    fig, axes = plt.subplots(2, 2, figsize=(12, 9), sharex=True, sharey=True)
+    fig, axes = plt.subplots(2, 2, figsize=(12, 9), sharex=True)
     for country_code, ax in zip(country_codes, axes.flatten()):
         plot_func(country_code, dem_names, feature_type, stat_name, ax=ax)
     if plot_func == plot_hist:
