@@ -1,5 +1,6 @@
-# DEM comparison for hydrological modeling purposes
+### Code supplement for DEM comparison paper
 
-Scripts used for assessing the suitability of different digital elevation models (DEM) for hydrological modeling purposes.
+#### Scripts used for comparing the effects of DEMs on hydrological modeling
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7875604.svg)](https://doi.org/10.5281/zenodo.7875604)
+### Acknowledgements
+This work was supported by mobilitas-Pluss postdoctoral researcher grant
