@@ -1,4 +1,4 @@
-### Code supplement for DEM comparison paper
+### DEM comparison for hydrological modeling
 
 #### Scripts used for comparing the effects of DEMs on hydrological modeling
 
